@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.5
+
+- Added LAN broadcast coordination between MyristaSwitch instances.
+- When one PC detects that the KMS switched to it, it announces that it is
+  active; other PCs running MyristaSwitch apply their away action.
+- This handles KVMs that keep keyboard/mouse devices emulated on inactive PCs,
+  where local USB disconnect detection cannot reliably see `Here` to `Away`.
+
 ## 1.0.4
 
 - Added Raw Input based device presence detection for KMS state changes.

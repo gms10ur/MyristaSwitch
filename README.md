@@ -26,6 +26,8 @@ opening the monitor OSD and changing the input manually.
 - Filterable USB device lists.
 - Auto detect mode that selects the KMS keyboard and mouse after they disappear
   from the current PC.
+- LAN coordination between MyristaSwitch instances for KVM/KMS switches that
+  keep keyboard and mouse devices emulated on inactive PCs.
 
 ## Recommended Setup
 
@@ -41,6 +43,11 @@ For a desktop with only one connected monitor, the app currently avoids disablin
 that display. Use `DoNothing` for the disconnected action on desktop machines.
 A future version may add DDC/CI input switching for monitors that support it,
 which would be a better fit for single-monitor desktop setups.
+
+For KVM/KMS switches that keep USB devices visible on the inactive machine,
+install and run MyristaSwitch on both PCs. When one PC detects that the switch
+moved to it, it broadcasts that state on the local network and the other PC
+applies its disconnected action.
 
 ## Build
 

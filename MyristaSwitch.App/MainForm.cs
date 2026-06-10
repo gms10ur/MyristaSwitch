@@ -6,6 +6,7 @@ internal sealed class MainForm : Form
     private readonly UsbDevicePoller _devicePoller = new();
     private readonly RawInputDevicePoller _rawInputDevicePoller = new();
     private readonly DisplayProfileService _displayProfileService = new();
+    private readonly NetworkSwitchCoordinator _networkSwitchCoordinator;
     private readonly System.Windows.Forms.Timer _timer = new();
     private readonly System.Windows.Forms.Timer _deviceChangeDebounceTimer = new();
     private readonly NotifyIcon _notifyIcon;
@@ -42,8 +43,11 @@ internal sealed class MainForm : Form
     public MainForm(string[] args)
     {
         _settings = AppSettings.Load();
+        _settings.Save();
         _theme = BrandAssets.CurrentTheme;
         Icon = BrandAssets.CreateIcon();
+        _networkSwitchCoordinator = new NetworkSwitchCoordinator(_settings.MachineId);
+        _networkSwitchCoordinator.RemoteActive += NetworkSwitchCoordinatorOnRemoteActive;
         _notifyIcon = BuildNotifyIcon();
         _hotkeyWindow = new HotkeyWindow();
         _hotkeyWindow.RestoreRequested += HotkeyWindowOnRestoreRequested;
@@ -103,6 +107,7 @@ internal sealed class MainForm : Form
         {
             _timer.Dispose();
             _deviceChangeDebounceTimer.Dispose();
+            _networkSwitchCoordinator.Dispose();
             _notifyIcon.Dispose();
             _hotkeyWindow.Dispose();
         }
@@ -549,6 +554,11 @@ internal sealed class MainForm : Form
 
             _lastActiveState = active;
             var action = active ? _settings.ConnectedAction : _settings.DisconnectedAction;
+            if (active)
+            {
+                await _networkSwitchCoordinator.AnnounceActiveAsync(CancellationToken.None);
+            }
+
             await ApplySelectedActionAsync(action, active ? $"KMS connected. Applied {action}. {GetSelectedDeviceSummary()}" : $"KMS disconnected. Applied {action}. {GetSelectedDeviceSummary()}");
         }
         catch (Exception ex)
@@ -746,6 +756,24 @@ internal sealed class MainForm : Form
     private async void HotkeyWindowOnRestoreRequested(object? sender, EventArgs e)
     {
         await RestoreExtendedAndPauseAsync();
+    }
+
+    private async void NetworkSwitchCoordinatorOnRemoteActive(object? sender, RemoteActiveEventArgs e)
+    {
+        if (InvokeRequired)
+        {
+            BeginInvoke(() => NetworkSwitchCoordinatorOnRemoteActive(sender, e));
+            return;
+        }
+
+        if (!_settings.AutomationEnabled)
+        {
+            return;
+        }
+
+        _lastActiveState = false;
+        await ApplySelectedActionAsync(_settings.DisconnectedAction, $"{e.MachineName} became active. Applied {_settings.DisconnectedAction}.");
+        UpdateLiveState(false);
     }
 
     private async Task RestoreExtendedAndPauseAsync()

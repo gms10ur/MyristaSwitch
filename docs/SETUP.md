@@ -35,7 +35,26 @@ both devices`. Review the selected devices manually before enabling automation.
 
 MyristaSwitch listens for Windows USB device-change notifications and also polls
 once per second while automation is enabled, so KMS connect/disconnect changes
-should be picked up shortly after the physical switch is pressed.
+should be picked up shortly after the physical switch is pressed when the KMS
+actually disconnects USB devices from the inactive PC.
+
+## Two-PC coordination
+
+Some KVM/KMS switches keep keyboard and mouse devices visible to the inactive
+PC. In that setup, Windows may never report a local USB disconnect on the PC
+that just lost control. Install and run MyristaSwitch on both PCs to handle that
+case.
+
+When one PC detects that the KMS moved to it, MyristaSwitch broadcasts a small
+local-network message. Other MyristaSwitch instances on the same network treat
+that message as "KMS moved away" and apply their disconnected action.
+
+Requirements:
+
+- Both PCs must be on the same local network.
+- MyristaSwitch must be running on both PCs.
+- Windows Firewall must allow MyristaSwitch on the private network if prompted.
+- Both PCs should use the same intended connected/disconnected display profiles.
 
 ## Filtering device lists
 

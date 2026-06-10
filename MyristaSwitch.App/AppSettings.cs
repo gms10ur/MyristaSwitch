@@ -4,6 +4,7 @@ namespace MyristaSwitch.App;
 
 internal sealed class AppSettings
 {
+    public string MachineId { get; set; } = Guid.NewGuid().ToString("N");
     public bool AutomationEnabled { get; set; }
     public string? KeyboardInstanceId { get; set; }
     public string? KeyboardSignature { get; set; }
