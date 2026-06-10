@@ -1,6 +1,12 @@
 namespace MyristaSwitch.App;
 
-internal sealed record UsbDevice(string ClassName, string FriendlyName, string InstanceId)
+internal sealed record UsbDevice(
+    string ClassName,
+    string FriendlyName,
+    string InstanceId,
+    string Status,
+    uint? ProblemCode,
+    bool Present)
 {
     public bool IsKeyboard => ClassName.Equals("Keyboard", StringComparison.OrdinalIgnoreCase);
 
@@ -11,4 +17,8 @@ internal sealed record UsbDevice(string ClassName, string FriendlyName, string I
     public string DisplayName => string.IsNullOrWhiteSpace(FriendlyName)
         ? InstanceId
         : $"{FriendlyName} [{ClassName}]";
+
+    public string Signature => $"{ClassName}|{FriendlyName}".ToUpperInvariant();
+
+    public bool IsUsable => Present && (string.IsNullOrWhiteSpace(Status) || Status.Equals("OK", StringComparison.OrdinalIgnoreCase));
 }

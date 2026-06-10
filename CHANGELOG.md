@@ -1,9 +1,20 @@
 # Changelog
 
+## 1.0.2
+
+- Changed the main automation label to `Enable`.
+- Renamed the strict matching option to `Require both mouse and keyboard`.
+- Renamed startup launch to `Launch at login`.
+- Improved KMS presence detection by using only usable devices for active/missing
+  state checks.
+- Added keyboard/mouse state details to the monitoring status line.
+
 ## 1.0.1
 
 - Improved KMS device detection by reacting to Windows USB device-change events
   in addition to the background poll.
+- Improved USB presence detection by checking device present/status fields
+  instead of relying only on `Get-PnpDevice -PresentOnly`.
 - Simplified the settings UI to focus on automation, sign-in launch, and
   keyboard-plus-mouse matching.
 - Removed user-facing poll interval and start-minimized options.

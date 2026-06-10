@@ -6,7 +6,9 @@ internal sealed class AppSettings
 {
     public bool AutomationEnabled { get; set; }
     public string? KeyboardInstanceId { get; set; }
+    public string? KeyboardSignature { get; set; }
     public string? MouseInstanceId { get; set; }
+    public string? MouseSignature { get; set; }
     public ScreenAction ConnectedAction { get; set; } = ScreenAction.Extend;
     public ScreenAction DisconnectedAction { get; set; } = ScreenAction.InternalOnly;
     public int PollIntervalSeconds { get; set; } = 1;

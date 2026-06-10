@@ -206,9 +206,9 @@ internal sealed class MainForm : Form
         grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
         grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
 
-        _enabledCheck.Text = "Automation";
-        _requireBothCheck.Text = "Match keyboard + mouse";
-        _startWithWindowsCheck.Text = "Launch at sign-in";
+        _enabledCheck.Text = "Enable";
+        _requireBothCheck.Text = "Require both mouse and keyboard";
+        _startWithWindowsCheck.Text = "Launch at login";
 
         grid.Controls.Add(_enabledCheck, 0, 0);
         grid.Controls.Add(_requireBothCheck, 1, 0);
@@ -405,7 +405,7 @@ internal sealed class MainForm : Form
             _devices = await _devicePoller.GetPresentInputDevicesAsync(CancellationToken.None);
             BindDeviceCombosPreservingSelection();
             UpdateLiveState();
-            UpdateStatus($"Found {_devices.Count} input devices.");
+            UpdateStatus($"Found {_devices.Count(device => device.IsUsable)} usable input devices.");
         }
         catch (Exception ex)
         {
@@ -437,6 +437,7 @@ internal sealed class MainForm : Form
         var items = new List<DeviceComboItem> { new("(not selected)", null) };
         items.AddRange(_devices
             .Where(includeDevice)
+            .Where(device => device.IsUsable)
             .Where(device => MatchesFilter(device, filter))
             .Select(device => new DeviceComboItem(device.DisplayName, device.InstanceId)));
 
@@ -473,7 +474,9 @@ internal sealed class MainForm : Form
     {
         _settings.AutomationEnabled = _enabledCheck.Checked;
         _settings.KeyboardInstanceId = _keyboardCombo.SelectedValue as string;
+        _settings.KeyboardSignature = FindDeviceById(_settings.KeyboardInstanceId)?.Signature ?? _settings.KeyboardSignature;
         _settings.MouseInstanceId = _mouseCombo.SelectedValue as string;
+        _settings.MouseSignature = FindDeviceById(_settings.MouseInstanceId)?.Signature ?? _settings.MouseSignature;
         _settings.ConnectedAction = (ScreenAction)_connectedActionCombo.SelectedItem!;
         _settings.DisconnectedAction = (ScreenAction)_disconnectedActionCombo.SelectedItem!;
         _settings.RequireBothDevices = _requireBothCheck.Checked;
@@ -517,6 +520,7 @@ internal sealed class MainForm : Form
 
             var active = IsSelectedKmsSideActive();
             UpdateLiveState(active);
+            UpdateStatus($"Monitoring. {GetSelectedDeviceSummary()}");
             if (_lastActiveState == active)
             {
                 return;
@@ -524,7 +528,7 @@ internal sealed class MainForm : Form
 
             _lastActiveState = active;
             var action = active ? _settings.ConnectedAction : _settings.DisconnectedAction;
-            await ApplySelectedActionAsync(action, active ? $"KMS connected. Applied {action}." : $"KMS disconnected. Applied {action}.");
+            await ApplySelectedActionAsync(action, active ? $"KMS connected. Applied {action}. {GetSelectedDeviceSummary()}" : $"KMS disconnected. Applied {action}. {GetSelectedDeviceSummary()}");
         }
         catch (Exception ex)
         {
@@ -561,10 +565,68 @@ internal sealed class MainForm : Form
             return false;
         }
 
-        var presentIds = _devices.Select(device => device.InstanceId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var activeStates = new[]
+        {
+            IsSelectedDeviceUsable(_settings.KeyboardInstanceId, _settings.KeyboardSignature),
+            IsSelectedDeviceUsable(_settings.MouseInstanceId, _settings.MouseSignature)
+        }.Where(state => state.HasValue).Select(state => state!.Value).ToArray();
+
+        if (activeStates.Length == 0)
+        {
+            return false;
+        }
+
         return _settings.RequireBothDevices
-            ? selectedIds.All(id => presentIds.Contains(id!))
-            : selectedIds.Any(id => presentIds.Contains(id!));
+            ? activeStates.All(active => active)
+            : activeStates.Any(active => active);
+    }
+
+    private bool? IsSelectedDeviceUsable(string? instanceId, string? signature)
+    {
+        if (string.IsNullOrWhiteSpace(instanceId) && string.IsNullOrWhiteSpace(signature))
+        {
+            return null;
+        }
+
+        var exact = FindDeviceById(instanceId);
+        if (exact is not null)
+        {
+            return exact.IsUsable;
+        }
+
+        if (!string.IsNullOrWhiteSpace(signature))
+        {
+            var signatureMatch = _devices.FirstOrDefault(device =>
+                device.IsUsable &&
+                string.Equals(device.Signature, signature, StringComparison.OrdinalIgnoreCase));
+            return signatureMatch is not null;
+        }
+
+        return false;
+    }
+
+    private string GetSelectedDeviceSummary()
+    {
+        var keyboard = IsSelectedDeviceUsable(_settings.KeyboardInstanceId, _settings.KeyboardSignature);
+        var mouse = IsSelectedDeviceUsable(_settings.MouseInstanceId, _settings.MouseSignature);
+        return $"Keyboard: {FormatDeviceState(keyboard)}, Mouse: {FormatDeviceState(mouse)}";
+    }
+
+    private static string FormatDeviceState(bool? state)
+    {
+        return state switch
+        {
+            true => "OK",
+            false => "Missing",
+            null => "Not selected"
+        };
+    }
+
+    private UsbDevice? FindDeviceById(string? instanceId)
+    {
+        return string.IsNullOrWhiteSpace(instanceId)
+            ? null
+            : _devices.FirstOrDefault(device => string.Equals(device.InstanceId, instanceId, StringComparison.OrdinalIgnoreCase));
     }
 
     private async Task StartAutoDetectAsync()
@@ -572,7 +634,9 @@ internal sealed class MainForm : Form
         ToggleButtons(false);
         try
         {
-            _autoDetectBaseline = await _devicePoller.GetPresentInputDevicesAsync(CancellationToken.None);
+            _autoDetectBaseline = (await _devicePoller.GetPresentInputDevicesAsync(CancellationToken.None))
+                .Where(device => device.IsUsable)
+                .ToList();
             _devices = _autoDetectBaseline;
             BindDeviceCombosPreservingSelection();
             _autoDetectActive = true;
@@ -593,7 +657,10 @@ internal sealed class MainForm : Form
 
     private bool TryCompleteAutoDetect()
     {
-        var presentIds = _devices.Select(device => device.InstanceId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var presentIds = _devices
+            .Where(device => device.IsUsable)
+            .Select(device => device.InstanceId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var missing = _autoDetectBaseline
             .Where(device => !presentIds.Contains(device.InstanceId))
             .ToList();
@@ -610,12 +677,14 @@ internal sealed class MainForm : Form
         if (keyboard is not null)
         {
             _settings.KeyboardInstanceId = keyboard.InstanceId;
+            _settings.KeyboardSignature = keyboard.Signature;
             _keyboardFilter.Clear();
         }
 
         if (mouse is not null)
         {
             _settings.MouseInstanceId = mouse.InstanceId;
+            _settings.MouseSignature = mouse.Signature;
             _mouseFilter.Clear();
         }
 
