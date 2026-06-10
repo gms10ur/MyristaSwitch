@@ -4,6 +4,7 @@ internal sealed class MainForm : Form
 {
     private readonly AppSettings _settings;
     private readonly UsbDevicePoller _devicePoller = new();
+    private readonly RawInputDevicePoller _rawInputDevicePoller = new();
     private readonly DisplayProfileService _displayProfileService = new();
     private readonly System.Windows.Forms.Timer _timer = new();
     private readonly System.Windows.Forms.Timer _deviceChangeDebounceTimer = new();
@@ -30,6 +31,7 @@ internal sealed class MainForm : Form
     private readonly Button _testDisconnectedButton = new();
     private ThemePalette _theme;
     private IReadOnlyList<UsbDevice> _devices = [];
+    private IReadOnlySet<string> _activeRawInputTokens = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<UsbDevice> _autoDetectBaseline = [];
     private bool? _lastActiveState;
     private bool _polling;
@@ -522,6 +524,7 @@ internal sealed class MainForm : Form
             if (_autoDetectActive || _settings.AutomationEnabled)
             {
                 _devices = await _devicePoller.GetPresentInputDevicesAsync(CancellationToken.None);
+                _activeRawInputTokens = _rawInputDevicePoller.GetActiveHardwareTokens();
             }
 
             if (_autoDetectActive && TryCompleteAutoDetect())
@@ -606,6 +609,12 @@ internal sealed class MainForm : Form
             return null;
         }
 
+        var hardwareToken = RawInputDevicePoller.ExtractHardwareToken(instanceId);
+        if (!string.IsNullOrWhiteSpace(hardwareToken) && _activeRawInputTokens.Count > 0)
+        {
+            return _activeRawInputTokens.Contains(hardwareToken);
+        }
+
         var exact = FindDeviceById(instanceId);
         if (exact is not null)
         {
@@ -627,7 +636,7 @@ internal sealed class MainForm : Form
     {
         var keyboard = IsSelectedDeviceUsable(_settings.KeyboardInstanceId, _settings.KeyboardSignature);
         var mouse = IsSelectedDeviceUsable(_settings.MouseInstanceId, _settings.MouseSignature);
-        return $"Keyboard: {FormatDeviceState(keyboard)}, Mouse: {FormatDeviceState(mouse)}";
+        return $"Keyboard: {FormatDeviceState(keyboard)}, Mouse: {FormatDeviceState(mouse)}, Raw: {_activeRawInputTokens.Count}";
     }
 
     private static string FormatDeviceState(bool? state)
@@ -655,6 +664,7 @@ internal sealed class MainForm : Form
             _autoDetectBaseline = (await _devicePoller.GetPresentInputDevicesAsync(CancellationToken.None))
                 .Where(device => device.IsUsable)
                 .ToList();
+            _activeRawInputTokens = _rawInputDevicePoller.GetActiveHardwareTokens();
             _devices = _autoDetectBaseline;
             BindDeviceCombosPreservingSelection();
             _autoDetectActive = true;

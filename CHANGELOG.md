@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.4
+
+- Added Raw Input based device presence detection for KMS state changes.
+- Uses Raw Input hardware tokens for active/inactive checks when available, so
+  stale PnP device nodes should no longer block `Here` to `Away` transitions.
+- Shows the Raw Input token count in the monitoring status line.
+
 ## 1.0.3
 
 - Restored USB device listing to the reliable `Get-PnpDevice -PresentOnly`

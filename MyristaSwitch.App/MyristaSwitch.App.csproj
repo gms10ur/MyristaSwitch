@@ -9,9 +9,9 @@
     <AssemblyName>MyristaSwitch</AssemblyName>
     <RootNamespace>MyristaSwitch.App</RootNamespace>
     <ApplicationIcon>..\assets\app.ico</ApplicationIcon>
-    <Version>1.0.3</Version>
-    <AssemblyVersion>1.0.3.0</AssemblyVersion>
-    <FileVersion>1.0.3.0</FileVersion>
+    <Version>1.0.4</Version>
+    <AssemblyVersion>1.0.4.0</AssemblyVersion>
+    <FileVersion>1.0.4.0</FileVersion>
     <Authors>MyristaSwitch contributors</Authors>
     <Description>KMS-aware display profile switcher for Windows.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
