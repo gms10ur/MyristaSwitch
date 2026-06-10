@@ -6,6 +6,7 @@ internal sealed class MainForm : Form
     private readonly UsbDevicePoller _devicePoller = new();
     private readonly DisplayProfileService _displayProfileService = new();
     private readonly System.Windows.Forms.Timer _timer = new();
+    private readonly System.Windows.Forms.Timer _deviceChangeDebounceTimer = new();
     private readonly NotifyIcon _notifyIcon;
     private readonly HotkeyWindow _hotkeyWindow;
     private readonly TextBox _keyboardFilter = new();
@@ -14,11 +15,9 @@ internal sealed class MainForm : Form
     private readonly ComboBox _mouseCombo = new();
     private readonly ComboBox _connectedActionCombo = new();
     private readonly ComboBox _disconnectedActionCombo = new();
-    private readonly NumericUpDown _pollIntervalInput = new();
     private readonly CheckBox _enabledCheck = new();
     private readonly CheckBox _requireBothCheck = new();
     private readonly CheckBox _startWithWindowsCheck = new();
-    private readonly CheckBox _startMinimizedCheck = new();
     private readonly Label _stateValue = new();
     private readonly Label _displayValue = new();
     private readonly Label _lastEventValue = new();
@@ -35,6 +34,7 @@ internal sealed class MainForm : Form
     private bool? _lastActiveState;
     private bool _polling;
     private bool _autoDetectActive;
+    private const int WmDeviceChange = 0x0219;
 
     public MainForm(string[] args)
     {
@@ -55,8 +55,14 @@ internal sealed class MainForm : Form
         ApplyTheme();
         LoadSettingsIntoControls();
 
-        _timer.Interval = Math.Max(1, _settings.PollIntervalSeconds) * 1000;
+        _timer.Interval = 1000;
         _timer.Tick += async (_, _) => await PollAndApplyAsync();
+        _deviceChangeDebounceTimer.Interval = 600;
+        _deviceChangeDebounceTimer.Tick += async (_, _) =>
+        {
+            _deviceChangeDebounceTimer.Stop();
+            await PollAndApplyAsync();
+        };
         Shown += async (_, _) =>
         {
             await RefreshDevicesAsync();
@@ -93,11 +99,23 @@ internal sealed class MainForm : Form
         if (disposing)
         {
             _timer.Dispose();
+            _deviceChangeDebounceTimer.Dispose();
             _notifyIcon.Dispose();
             _hotkeyWindow.Dispose();
         }
 
         base.Dispose(disposing);
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        if (m.Msg == WmDeviceChange)
+        {
+            _deviceChangeDebounceTimer.Stop();
+            _deviceChangeDebounceTimer.Start();
+        }
+
+        base.WndProc(ref m);
     }
 
     private void BuildLayout()
@@ -181,30 +199,21 @@ internal sealed class MainForm : Form
 
     private Control BuildOptionsGrid()
     {
-        var grid = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, RowCount = 4, Height = 160 };
+        var grid = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, RowCount = 3, Height = 118 };
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
         grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
         grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
         grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
 
-        _enabledCheck.Text = "Enable automation";
-        _requireBothCheck.Text = "Require both devices";
-        _startWithWindowsCheck.Text = "Start with Windows";
-        _startMinimizedCheck.Text = "Start minimized";
-
-        _pollIntervalInput.Minimum = 1;
-        _pollIntervalInput.Maximum = 30;
-        _pollIntervalInput.Width = 80;
+        _enabledCheck.Text = "Automation";
+        _requireBothCheck.Text = "Match keyboard + mouse";
+        _startWithWindowsCheck.Text = "Launch at sign-in";
 
         grid.Controls.Add(_enabledCheck, 0, 0);
         grid.Controls.Add(_requireBothCheck, 1, 0);
         grid.Controls.Add(_startWithWindowsCheck, 0, 1);
-        grid.Controls.Add(_startMinimizedCheck, 1, 1);
-        grid.Controls.Add(NewFieldLabel("Poll interval seconds"), 0, 2);
-        grid.Controls.Add(_pollIntervalInput, 1, 2);
-        grid.Controls.Add(_statusLabel, 0, 3);
+        grid.Controls.Add(_statusLabel, 0, 2);
         grid.SetColumnSpan(_statusLabel, 2);
 
         return grid;
@@ -264,7 +273,7 @@ internal sealed class MainForm : Form
             button.FlatAppearance.BorderColor = _theme.BorderColor;
             button.FlatAppearance.BorderSize = 1;
         }
-        else if (control is ComboBox or NumericUpDown or TextBox)
+        else if (control is ComboBox or TextBox)
         {
             control.BackColor = _theme.SurfaceColor;
             control.ForeColor = _theme.TextColor;
@@ -377,8 +386,6 @@ internal sealed class MainForm : Form
         _enabledCheck.Checked = _settings.AutomationEnabled;
         _requireBothCheck.Checked = _settings.RequireBothDevices;
         _startWithWindowsCheck.Checked = StartupService.IsEnabled() || _settings.StartWithWindows;
-        _startMinimizedCheck.Checked = _settings.StartMinimized;
-        _pollIntervalInput.Value = Math.Clamp(_settings.PollIntervalSeconds, 1, 30);
         BindActionCombo(_connectedActionCombo, _settings.ConnectedAction);
         BindActionCombo(_disconnectedActionCombo, _settings.DisconnectedAction);
         UpdateStatus("Waiting for device scan.");
@@ -471,11 +478,11 @@ internal sealed class MainForm : Form
         _settings.DisconnectedAction = (ScreenAction)_disconnectedActionCombo.SelectedItem!;
         _settings.RequireBothDevices = _requireBothCheck.Checked;
         _settings.StartWithWindows = _startWithWindowsCheck.Checked;
-        _settings.StartMinimized = _startMinimizedCheck.Checked;
-        _settings.PollIntervalSeconds = (int)_pollIntervalInput.Value;
+        _settings.StartMinimized = _settings.StartWithWindows;
+        _settings.PollIntervalSeconds = 1;
         _settings.Save();
         StartupService.SetEnabled(_settings.StartWithWindows);
-        _timer.Interval = _settings.PollIntervalSeconds * 1000;
+        _timer.Interval = 1000;
         _lastActiveState = null;
         UpdateLiveState();
         UpdateStatus("Settings saved.");

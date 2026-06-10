@@ -11,3 +11,6 @@
 - Added test buttons for display actions.
 - Added logo, MIT license, release documentation, GitHub Actions build, and
   Windows installer packaging.
+- Added immediate USB device-change polling so KMS connect/disconnect changes
+  are detected without waiting only for the timer.
+- Simplified automation/startup settings in the main UI.

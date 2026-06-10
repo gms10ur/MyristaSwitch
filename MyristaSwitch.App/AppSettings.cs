@@ -9,7 +9,7 @@ internal sealed class AppSettings
     public string? MouseInstanceId { get; set; }
     public ScreenAction ConnectedAction { get; set; } = ScreenAction.Extend;
     public ScreenAction DisconnectedAction { get; set; } = ScreenAction.InternalOnly;
-    public int PollIntervalSeconds { get; set; } = 2;
+    public int PollIntervalSeconds { get; set; } = 1;
     public bool RequireBothDevices { get; set; } = true;
     public bool StartWithWindows { get; set; }
     public bool StartMinimized { get; set; }

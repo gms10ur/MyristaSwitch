@@ -33,6 +33,10 @@ many similar keyboard, mouse, and HID entries.
 If only one device disappears, MyristaSwitch selects it and disables `Require
 both devices`. Review the selected devices manually before enabling automation.
 
+MyristaSwitch listens for Windows USB device-change notifications and also polls
+once per second while automation is enabled, so KMS connect/disconnect changes
+should be picked up shortly after the physical switch is pressed.
+
 ## Filtering device lists
 
 Use the `Filter` boxes above the keyboard and mouse selectors to narrow long USB
