@@ -9,30 +9,9 @@ internal sealed class UsbDevicePoller
     public async Task<IReadOnlyList<UsbDevice>> GetPresentInputDevicesAsync(CancellationToken cancellationToken)
     {
         const string script = """
-            Get-PnpDevice |
+            Get-PnpDevice -PresentOnly |
               Where-Object { $_.Class -in @('Keyboard','Mouse','HIDClass') } |
-              ForEach-Object {
-                $present = $false
-                $problem = $null
-                try {
-                  $presentProp = Get-PnpDeviceProperty -InstanceId $_.InstanceId -KeyName 'DEVPKEY_Device_IsPresent' -ErrorAction Stop
-                  $present = [bool]$presentProp.Data
-                } catch {
-                  $present = $_.Status -eq 'OK'
-                }
-                try {
-                  $problemProp = Get-PnpDeviceProperty -InstanceId $_.InstanceId -KeyName 'DEVPKEY_Device_ProblemCode' -ErrorAction Stop
-                  $problem = $problemProp.Data
-                } catch {}
-                [PSCustomObject]@{
-                  Class = $_.Class
-                  FriendlyName = $_.FriendlyName
-                  InstanceId = $_.InstanceId
-                  Status = $_.Status
-                  ProblemCode = $problem
-                  Present = $present
-                }
-              } |
+              Select-Object Class,FriendlyName,InstanceId,Status,@{Name='Present';Expression={$true}},@{Name='ProblemCode';Expression={$null}} |
               ConvertTo-Json -Compress
             """;
 

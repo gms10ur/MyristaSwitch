@@ -34,6 +34,7 @@ internal sealed class MainForm : Form
     private bool? _lastActiveState;
     private bool _polling;
     private bool _autoDetectActive;
+    private bool _loadingSettings;
     private const int WmDeviceChange = 0x0219;
 
     public MainForm(string[] args)
@@ -199,9 +200,9 @@ internal sealed class MainForm : Form
 
     private Control BuildOptionsGrid()
     {
-        var grid = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, RowCount = 3, Height = 118 };
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        var grid = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 1, RowCount = 4, Height = 146 };
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
         grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
         grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
         grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
@@ -209,12 +210,17 @@ internal sealed class MainForm : Form
         _enabledCheck.Text = "Enable";
         _requireBothCheck.Text = "Require both mouse and keyboard";
         _startWithWindowsCheck.Text = "Launch at login";
+        _enabledCheck.AutoSize = true;
+        _requireBothCheck.AutoSize = true;
+        _startWithWindowsCheck.AutoSize = true;
+        _enabledCheck.CheckedChanged += (_, _) => SaveSettingsFromControlsIfReady();
+        _requireBothCheck.CheckedChanged += (_, _) => SaveSettingsFromControlsIfReady();
+        _startWithWindowsCheck.CheckedChanged += (_, _) => SaveSettingsFromControlsIfReady();
 
         grid.Controls.Add(_enabledCheck, 0, 0);
-        grid.Controls.Add(_requireBothCheck, 1, 0);
-        grid.Controls.Add(_startWithWindowsCheck, 0, 1);
-        grid.Controls.Add(_statusLabel, 0, 2);
-        grid.SetColumnSpan(_statusLabel, 2);
+        grid.Controls.Add(_requireBothCheck, 0, 1);
+        grid.Controls.Add(_startWithWindowsCheck, 0, 2);
+        grid.Controls.Add(_statusLabel, 0, 3);
 
         return grid;
     }
@@ -383,11 +389,13 @@ internal sealed class MainForm : Form
 
     private void LoadSettingsIntoControls()
     {
+        _loadingSettings = true;
         _enabledCheck.Checked = _settings.AutomationEnabled;
         _requireBothCheck.Checked = _settings.RequireBothDevices;
         _startWithWindowsCheck.Checked = StartupService.IsEnabled() || _settings.StartWithWindows;
         BindActionCombo(_connectedActionCombo, _settings.ConnectedAction);
         BindActionCombo(_disconnectedActionCombo, _settings.DisconnectedAction);
+        _loadingSettings = false;
         UpdateStatus("Waiting for device scan.");
     }
 
@@ -489,6 +497,16 @@ internal sealed class MainForm : Form
         _lastActiveState = null;
         UpdateLiveState();
         UpdateStatus("Settings saved.");
+    }
+
+    private void SaveSettingsFromControlsIfReady()
+    {
+        if (_loadingSettings || _connectedActionCombo.SelectedItem is null || _disconnectedActionCombo.SelectedItem is null)
+        {
+            return;
+        }
+
+        SaveSettingsFromControls();
     }
 
     private async Task PollAndApplyAsync()

@@ -1,5 +1,5 @@
 #define MyAppName "MyristaSwitch"
-#define MyAppVersion "1.0.2"
+#define MyAppVersion "1.0.3"
 #define MyAppPublisher "MyristaSwitch contributors"
 #define MyAppExeName "MyristaSwitch.exe"
 #define PublishDir "..\artifacts\MyristaSwitch-win-x64-portable"

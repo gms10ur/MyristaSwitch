@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.3
+
+- Restored USB device listing to the reliable `Get-PnpDevice -PresentOnly`
+  source after the richer presence query proved unreliable on some systems.
+- Made the settings labels match the intended wording: `Enable`, `Require both
+  mouse and keyboard`, and `Launch at login`.
+- Changed the settings layout to a single column so long labels are not clipped.
+- Auto-saves the main toggle settings when checkboxes change.
+
 ## 1.0.2
 
 - Changed the main automation label to `Enable`.
